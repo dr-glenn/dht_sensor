@@ -9,7 +9,9 @@ MQTT_USERNAME  = "3c9f82b0-ae30-11e8-9bc2-335872d4b092"
 MQTT_PASSWORD  = "d7e764d9f3df983ac9c302070df769ee8b1e096f"
 MQTT_CLIENT_ID = "5df2add0-af06-11e8-85ea-f10189fd2756"
 # v1/username/things/clientID/data/channel
-TOPIC="v1/%s/things/%s/data/%d" %(MQTT_USERNAME,MQTT_CLIENT_ID,3)
+TOPIC = "v1/%s/things/%s/data/%d"   # last arg is channel number
+TOPIC3= TOPIC %(MQTT_USERNAME,MQTT_CLIENT_ID,3) # DHT22 temperature
+TOPIC4= TOPIC %(MQTT_USERNAME,MQTT_CLIENT_ID,4) # DHT22 humidity
 
 def on_connect(mclient, userdata, flags, rc):
     if rc == 0:
@@ -20,9 +22,9 @@ def on_connect(mclient, userdata, flags, rc):
         mclient.bad_connection_flag = True
 
 def on_message(mclient, userdata, message):
+    print "received message =%s" %(str(message.payload.decode("utf-8")))
     time.sleep(1)
     mclient.has_message = True
-    print "received mesage =%s" %(str(message.payload.decode("utf-8")))
 
 def on_subscribe(mclient, userdata, mid, granted_qos):
     print "Subscribed: %s" %(str(mid)+" "+str(granted_qos))
@@ -45,13 +47,15 @@ print "Start Main loop"
 client.has_message = False
 client.on_subscribe = on_subscribe
 client.on_message = on_message
-result,msg_id = client.subscribe(TOPIC)
+result,msg_id = client.subscribe(TOPIC3)
+result,msg_id = client.subscribe(TOPIC4)
 time_cnt = 0
 while not client.has_message:
     time.sleep(5)
     time_cnt += 5
     print "waiting for message, t=%d" %(time_cnt)
-client.unsubscribe(TOPIC)
+client.unsubscribe(TOPIC3)
+client.unsubscribe(TOPIC4)
 client.disconnect()
 client.loop_stop()
 
