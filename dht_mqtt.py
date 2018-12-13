@@ -79,16 +79,22 @@ def read_temp(dev_file):
 def lcd_show(timestr, temp22, hum22):
     global mylcd
     if mylcd:
-        if timestr:
-            obsstr = ""
-            mylcd.lcd_display_string(timestr, 1)
-            obsstr += "T=%.1f%sF, " % (1.8*float(temp22)+32.0, chr(223))
-            obsstr += "H=%d %%" % int(hum22)
-            mylcd.lcd_display_string(obsstr, 2)
+        # turn off backlight at night
+        hour = int(timestr.split(':')[0])
+        if hour < 6 or hour >= 22:
+            mylcd.backlight(0)
         else:
-            # if not timestr, then temp and hum each get a line of the display
-            mylcd.lcd_display_string("Temp: %.1f%s F" % (1.8*float(temp22)+32.0, chr(223)), 1)
-            mylcd.lcd_display_string("Humidity: %d%%" % int(hum22), 2)
+            if True:
+                # Show time on line 1, T,H on line 2
+                obsstr = ""
+                mylcd.lcd_display_string(timestr, 1)
+                obsstr += "T=%.1f%sF, " % (1.8*float(temp22)+32.0, chr(223))
+                obsstr += "H=%d%%" % int(hum22)
+                mylcd.lcd_display_string(obsstr, 2)
+            else:
+                # if not timestr, then temp and hum each get a line of the display
+                mylcd.lcd_display_string("Temp: %.1f%s F" % (1.8*float(temp22)+32.0, chr(223)), 1)
+                mylcd.lcd_display_string("Humidity: %d%%" % int(hum22), 2)
 
 if READ_DS18B20:
     dev_ds18b20 = ds18b20_start()
@@ -114,7 +120,3 @@ while True:
             client.virtualWrite(DS18_CHAN, t_c, cayenne.TYPE_TEMPERATURE, cayenne.UNIT_CELSIUS)
         lcd_show(timestr, temp22, humidity22)
         timestamp = time.time()
-        # turn off backlight at night
-        hour = int(timestr.split(':')[0])
-        if hour < 6 or hour >= 22:
-            mylcd.backlight(0)
