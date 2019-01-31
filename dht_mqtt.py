@@ -1,3 +1,4 @@
+# coding=utf-8
 # dht_reader.py
 # In order to have this run at boot time, edit "sudo crontab -e"
 # Add this line in crontab "@reboot python /home/pi/src/DHT/dht_mqtt.py &"
@@ -18,7 +19,63 @@ import cayenne.client as cayenne
 import Adafruit_DHT # DHT device interface
 import I2C_LCD_driver   # for LCD1602 device with backpack
 
+########### Logging Setup ###########
 LOGFILE = '/home/pi/mqtt.log'
+import logging
+from logging.handlers import RotatingFileHandler,TimedRotatingFileHandler
+handler = TimedRotatingFileHandler(LOGFILE, when='midnight', interval=1, backupCount=3)
+#handler = RotatingFileHandler(LOGFILE, maxBytes=50000, backupCount=3)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s : %(message)s')
+handler.setFormatter(formatter)
+defLogger = logging.getLogger('')
+defLogger.addHandler(handler)
+defLogger.setLevel(logging.DEBUG)
+
+logger = logging.getLogger('mqtt')
+ 
+import RPi.GPIO as GPIO
+from functools import partial
+
+class gpioInput:
+    def __init__(self,pin):
+        self.pin = pin
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setup(pin, GPIO.IN)
+        self.x = 1
+        self.cb = partial(self.callback2, self.x)
+        GPIO.add_event_detect(pin, GPIO.RISING, callback=self.cb)
+    def callback2(self, x, channel):
+        # callback2 is used with functools.partial.
+        # Additional args appear first and then add_event_detect inserts channel as the last arg.
+        self.x += 1
+        logger.debug('cb2: channel=%d, x=%d self.x=%d' %(channel,x,self.x))
+        lcd_show(timestr, temp22, humid22, True)
+
+BUTTON_CHAN = 6
+button = gpioInput( BUTTON_CHAN )
+
+"""
+def on_button():
+    '''
+    If button is pressed, display LCD even if during off hours
+    '''
+    global timestr, temp22, humid22
+    lcd_show(timestr, temp22, humid22, True)
+ 
+def pb_handler(channel):
+    if GPIO.input(channel) == GPIO.HIGH:
+        # DOWN
+        logger.debug('button DOWN')
+    else:
+        # UP
+        logger.debug('button UP')
+ 
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(6, GPIO.IN)
+GPIO.add_event_detect(BUTTON_CHAN, GPIO.BOTH, callback=pb_handler)
+#message = raw_input('\nPress any key to exit.\n')
+"""
+ 
 HAS_LCD = True
 
 DHT_TEMP_CHAN = 3   # channel for my Cayenne dashboard
@@ -38,19 +95,6 @@ lcdHourOff = 22 # don't want that bright backlight during the night
 timestr = ""
 temp22 = None
 humid22 = None
-
-########### Logging Setup ###########
-import logging
-from logging.handlers import RotatingFileHandler,TimedRotatingFileHandler
-#handler = TimedRotatingFileHandler(LOGFILE, when='midnight', interval=1, backupCount=3)
-handler = RotatingFileHandler(LOGFILE, maxBytes=50000, backupCount=3)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s : %(message)s')
-handler.setFormatter(formatter)
-defLogger = logging.getLogger('')
-defLogger.addHandler(handler)
-defLogger.setLevel(logging.DEBUG)
-
-logger = logging.getLogger('mqtt')
 
 logger.info('start dht_mqtt')
 if HAS_LCD:
@@ -115,13 +159,6 @@ def read_temp(dev_file):
         return temp_c, temp_f
     else:
         return (-100.0,-100.0)
-	
-def on_button():
-    '''
-    If button is pressed, display LCD even if during off hours
-    '''
-    global timestr, temp22, humid22
-    lcd_show(timestr, temp22, humd22, True)
 
 def lcd_show(timestr, temp22, hum22, override=False):
     '''
@@ -148,15 +185,15 @@ if READ_DS18B20:
 while True:
     client.loop()   # default timeout is 1 second. I think this actually blocks for 1 second.
     if (time.time() > timestamp + UPDATE_SECONDS):
-        #humidity11, temp11 = Adafruit_DHT.read_retry(11, 18) #11 is the sensor type, 18 is the GPIO pin number that DATA wire is connected to
+        #humid11, temp11 = Adafruit_DHT.read_retry(11, 18) #11 is the sensor type, 18 is the GPIO pin number that DATA wire is connected to
         humid22, temp22 = Adafruit_DHT.read_retry(22, DHT_GPIO) #22 is the sensor type, 5 is the GPIO pin number that DATA wire is connected to
         logger.info('temp=%.1f, hum=%.1f' %(float(temp22), float(humid22)))
         timestr = time.strftime("%H:%M:%S")
         obsstr = ""
         if temp11 is not None:
             client.virtualWrite(1, temp11, cayenne.TYPE_TEMPERATURE, cayenne.UNIT_CELSIUS)
-        if humidity11 is not None:
-            client.virtualWrite(2, humidity11, cayenne.TYPE_RELATIVE_HUMIDITY, cayenne.UNIT_PERCENT)
+        if humid11 is not None:
+            client.virtualWrite(2, humid11, cayenne.TYPE_RELATIVE_HUMIDITY, cayenne.UNIT_PERCENT)
         if temp22 is not None:
             client.virtualWrite(DHT_TEMP_CHAN, temp22, cayenne.TYPE_TEMPERATURE, cayenne.UNIT_CELSIUS)
         if humid22 is not None:
@@ -166,3 +203,6 @@ while True:
             client.virtualWrite(DS18_CHAN, t_c, cayenne.TYPE_TEMPERATURE, cayenne.UNIT_CELSIUS)
         lcd_show(timestr, temp22, humid22)
         timestamp = time.time()
+
+GPIO.cleanup()
+logger.info('WARNING: exiting')

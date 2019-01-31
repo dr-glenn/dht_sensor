@@ -1,5 +1,9 @@
 # dht_reader.py
 # Getting lots of ideas and code from Steve: http://www.steves-internet-guide.com/client-connections-python-mqtt/
+
+# This MQTT client subscribes for messages. It uses paho.mqtt, but is setup to talk to Cayenne brokers.
+# It can be easily changed to use a different broker.
+
 import paho.mqtt.client as mqtt
 import time
 #import Adafruit_DHT
